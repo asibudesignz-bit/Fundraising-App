@@ -16,8 +16,6 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <!-- Framer Motion -->
     <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js"></script>
-    <!-- Date-fns -->
-    <script src="https://cdn.jsdelivr.net/npm/date-fns@2.30.0/index.min.js"></script>
 
     <style>
         body { font-family: 'Inter', sans-serif; }
@@ -44,7 +42,9 @@
 
     <script type="text/babel">
         const { useState, useEffect, useMemo, createContext, useContext } = React;
-        const { motion, AnimatePresence } = FramerMotion;
+        // Framer Motion uses 'Motion' as the global variable in the browser build
+        const motion = window.Motion ? window.Motion.motion : (props) => <div {...props} />;
+        const AnimatePresence = window.Motion ? window.Motion.AnimatePresence : ({children}) => children;
 
         // --- CONFIGURATION ---
         // Replace this with your actual Google Apps Script Web App URL
@@ -191,7 +191,11 @@
         // --- COMPONENTS ---
 
         function Icon({ name, size = 24, className = "" }) {
-            useEffect(() => { lucide.createIcons(); }, [name]);
+            useEffect(() => { 
+                if (window.lucide) {
+                    window.lucide.createIcons(); 
+                }
+            }, [name]);
             return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
         }
 
