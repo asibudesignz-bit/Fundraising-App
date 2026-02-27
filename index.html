@@ -1,13 +1,516 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Google AI Studio App</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fundraising Manager</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- React & Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Framer Motion -->
+    <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js"></script>
+    <!-- Date-fns -->
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@2.30.0/index.min.js"></script>
 
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#003366',
+                        accent: '#FFD700',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-50 text-slate-900">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, createContext, useContext } = React;
+        const { motion, AnimatePresence } = FramerMotion;
+
+        // --- CONFIGURATION ---
+        // Replace this with your actual Google Apps Script Web App URL
+        const SCRIPT_URL = ''; 
+
+        // --- MOCK DATA ---
+        const mockMembers = [
+            { Name: 'John Doe', Email: 'john@example.com', Reg_Number: 'BS/2023/001', Program: 'Computer Science', Year: 2, Role: 'Chairperson', Total_Owed: 5000, Status: 'Active', Type: 'Team' },
+            { Name: 'Jane Smith', Email: 'jane@example.com', Reg_Number: 'BS/2023/002', Program: 'Business Admin', Year: 3, Role: 'Treasurer', Total_Owed: 0, Status: 'Active', Type: 'Team' },
+            { Name: 'Alex Banda', Email: 'alex@example.com', Reg_Number: 'BS/2023/003', Program: 'Engineering', Year: 1, Role: 'Member', Total_Owed: 15000, Status: 'Active', Type: 'MAGSO Member' },
+            { Name: 'Sarah Phiri', Email: 'sarah@example.com', Reg_Number: 'BS/2023/004', Program: 'Social Science', Year: 2, Role: 'Member', Total_Owed: 2000, Status: 'Active', Type: 'MAGSO Member' },
+        ];
+
+        const mockTransactions = [
+            { Date: '2024-03-20', Member_Name: 'John Doe', Activity: 'Membership Fee', Amount: 5000, Mode: 'Cash', Verified_By_Treasurer: 'Yes' },
+            { Date: '2024-03-21', Member_Name: 'Alex Banda', Activity: 'Donation', Amount: 10000, Mode: 'AirtelMoney', Verified_By_Treasurer: 'No' },
+        ];
+
+        const mockTasks = [
+            { Task_Name: 'Draft Proposal', Assigned_To: 'John Doe', Due_Date: '2024-04-01', Status: 'Pending', Priority: 'High' },
+            { Task_Name: 'Contact Sponsors', Assigned_To: 'Jane Smith', Due_Date: '2024-03-25', Status: 'Done', Priority: 'Medium' },
+        ];
+
+        const mockEvents = [
+            { Date: '2026-03-05', Name: 'Church Visit', Description: 'Fundraising visit to St. Peters', Location: 'St. Peters Cathedral' },
+            { Date: '2026-03-12', Name: 'Car Wash', Description: 'Main campus car wash event', Location: 'Campus Parking' },
+            { Date: '2026-02-27', Name: 'Shoe Polish Drive', Description: 'Quick shoe polish service', Location: 'Library Square' },
+        ];
+
+        // --- SYNC SERVICE ---
+        const syncService = {
+            getQueue: () => JSON.parse(localStorage.getItem('sync_queue') || '[]'),
+            addToQueue: (item) => {
+                const queue = syncService.getQueue();
+                queue.push({ ...item, id: Date.now() });
+                localStorage.setItem('sync_queue', JSON.stringify(queue));
+            },
+            processQueue: async () => {
+                if (!navigator.onLine || !SCRIPT_URL) return;
+                const queue = syncService.getQueue();
+                if (queue.length === 0) return;
+
+                for (const item of queue) {
+                    try {
+                        await fetch(SCRIPT_URL, {
+                            method: 'POST',
+                            mode: 'no-cors',
+                            body: JSON.stringify(item)
+                        });
+                        const currentQueue = syncService.getQueue();
+                        localStorage.setItem('sync_queue', JSON.stringify(currentQueue.filter(q => q.id !== item.id)));
+                    } catch (e) { console.error('Sync failed', e); break; }
+                }
+            }
+        };
+
+        // --- API SERVICE ---
+        const api = {
+            async getMembers() {
+                if (!SCRIPT_URL) return mockMembers;
+                try {
+                    const res = await fetch(`${SCRIPT_URL}?sheet=Members`);
+                    return res.json();
+                } catch (e) { return mockMembers; }
+            },
+            async getTransactions() {
+                if (!SCRIPT_URL) return mockTransactions;
+                try {
+                    const res = await fetch(`${SCRIPT_URL}?sheet=Transactions`);
+                    return res.json();
+                } catch (e) { return mockTransactions; }
+            },
+            async getTasks() {
+                if (!SCRIPT_URL) return mockTasks;
+                try {
+                    const res = await fetch(`${SCRIPT_URL}?sheet=Tasks`);
+                    return res.json();
+                } catch (e) { return mockTasks; }
+            },
+            async getEvents() {
+                if (!SCRIPT_URL) return mockEvents;
+                try {
+                    const res = await fetch(`${SCRIPT_URL}?sheet=Events`);
+                    return res.json();
+                } catch (e) { return mockEvents; }
+            },
+            async addTransaction(data) {
+                if (!navigator.onLine) { syncService.addToQueue({ action: 'add', sheet: 'Transactions', data }); return { success: true, offline: true }; }
+                if (!SCRIPT_URL) return { success: true };
+                try {
+                    await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'add', sheet: 'Transactions', data }) });
+                    return { success: true };
+                } catch (e) { syncService.addToQueue({ action: 'add', sheet: 'Transactions', data }); return { success: true, offline: true }; }
+            },
+            async addMember(data) {
+                if (!navigator.onLine) { syncService.addToQueue({ action: 'add', sheet: 'Members', data }); return { success: true, offline: true }; }
+                if (!SCRIPT_URL) return { success: true };
+                try {
+                    await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'add', sheet: 'Members', data }) });
+                    return { success: true };
+                } catch (e) { syncService.addToQueue({ action: 'add', sheet: 'Members', data }); return { success: true, offline: true }; }
+            },
+            async updateTask(name, data) {
+                if (!navigator.onLine) { syncService.addToQueue({ action: 'update', sheet: 'Tasks', idField: 'Task_Name', idValue: name, data }); return { success: true, offline: true }; }
+                if (!SCRIPT_URL) return { success: true };
+                try {
+                    await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'update', sheet: 'Tasks', idField: 'Task_Name', idValue: name, data }) });
+                    return { success: true };
+                } catch (e) { syncService.addToQueue({ action: 'update', sheet: 'Tasks', idField: 'Task_Name', idValue: name, data }); return { success: true, offline: true }; }
+            }
+        };
+
+        // --- AUTH CONTEXT ---
+        const AuthContext = createContext();
+        function AuthProvider({ children }) {
+            const [user, setUser] = useState(null);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                const saved = localStorage.getItem('magso_user');
+                if (saved) setUser(JSON.parse(saved));
+                setLoading(false);
+            }, []);
+
+            const login = async (email, reg) => {
+                const members = await api.getMembers();
+                const found = members.find(m => m.Email.toLowerCase() === email.toLowerCase() && m.Reg_Number === reg);
+                if (found) { setUser(found); localStorage.setItem('magso_user', JSON.stringify(found)); return true; }
+                return false;
+            };
+
+            const register = async (data) => {
+                const teamMember = { ...data, Type: 'Team' };
+                const res = await api.addMember(teamMember);
+                if (res.success) { setUser(teamMember); localStorage.setItem('magso_user', JSON.stringify(teamMember)); return true; }
+                return false;
+            };
+
+            const logout = () => { setUser(null); localStorage.removeItem('magso_user'); };
+
+            return <AuthContext.Provider value={{ user, login, register, logout, loading }}>{children}</AuthContext.Provider>;
+        }
+
+        // --- COMPONENTS ---
+
+        function Icon({ name, size = 24, className = "" }) {
+            useEffect(() => { lucide.createIcons(); }, [name]);
+            return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
+        }
+
+        function Login() {
+            const { login, register } = useContext(AuthContext);
+            const [isReg, setIsReg] = useState(false);
+            const [email, setEmail] = useState('');
+            const [reg, setReg] = useState('');
+            const [name, setName] = useState('');
+            const [loading, setLoading] = useState(false);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                if (isReg) {
+                    await register({ Name: name, Email: email, Reg_Number: reg, Program: 'N/A', Year: 1, Role: 'Member', Total_Owed: 0, Status: 'Active' });
+                } else {
+                    const ok = await login(email, reg);
+                    if (!ok) alert('Invalid credentials');
+                }
+                setLoading(false);
+            };
+
+            return (
+                <div className="min-h-screen bg-primary flex items-center justify-center p-4">
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md bg-white rounded-[2.5rem] p-8 shadow-2xl">
+                        <div className="text-center mb-8">
+                            <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                <Icon name="shield-check" className="text-accent" size={32} />
+                            </div>
+                            <h1 className="text-2xl font-bold text-slate-900">Fundraising Manager</h1>
+                            <p className="text-slate-500 text-sm">{isReg ? 'Create Account' : 'Portal Login'}</p>
+                        </div>
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            {isReg && (
+                                <input required placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-primary/20 outline-none" />
+                            )}
+                            <input required type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-primary/20 outline-none" />
+                            <input required placeholder="Reg Number" value={reg} onChange={e => setReg(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-primary/20 outline-none" />
+                            <button disabled={loading} className="w-full bg-primary text-white py-4 rounded-xl font-bold hover:bg-slate-800 transition-all disabled:opacity-50">
+                                {loading ? 'Processing...' : (isReg ? 'Register' : 'Enter Portal')}
+                            </button>
+                        </form>
+                        <button onClick={() => setIsReg(!isReg)} className="w-full mt-6 text-primary text-sm font-bold hover:underline">
+                            {isReg ? 'Already have an account? Login' : 'New member? Register here'}
+                        </button>
+                    </motion.div>
+                </div>
+            );
+        }
+
+        function Dashboard({ transactions, members }) {
+            const stats = useMemo(() => {
+                const total = transactions.filter(t => t.Verified_By_Treasurer === 'Yes').reduce((s, t) => s + Number(t.Amount), 0);
+                const owed = members.reduce((s, m) => s + Number(m.Total_Owed), 0);
+                return { total, owed };
+            }, [transactions, members]);
+
+            return (
+                <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-primary p-6 rounded-3xl text-white shadow-xl">
+                            <p className="text-white/60 text-sm font-bold uppercase tracking-widest">Total Collected</p>
+                            <h3 className="text-4xl font-bold mt-2">MK {stats.total.toLocaleString()}</h3>
+                        </div>
+                        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                            <p className="text-slate-400 text-sm font-bold uppercase tracking-widest">Outstanding Pledges</p>
+                            <h3 className="text-4xl font-bold mt-2 text-primary">MK {stats.owed.toLocaleString()}</h3>
+                        </div>
+                    </div>
+                    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                        <h3 className="font-bold text-lg mb-4">Recent Activity</h3>
+                        <div className="space-y-4">
+                            {transactions.slice(0, 5).map((t, i) => (
+                                <div key={i} className="flex justify-between items-center p-3 bg-slate-50 rounded-2xl">
+                                    <div>
+                                        <p className="font-bold text-slate-900">{t.Activity}</p>
+                                        <p className="text-xs text-slate-500">{t.Member_Name} • {t.Date}</p>
+                                    </div>
+                                    <p className="font-bold text-primary">MK {Number(t.Amount).toLocaleString()}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function People({ members, transactions, refresh }) {
+            const [tab, setTab] = useState('Team');
+            const [sel, setSel] = useState(null);
+            const [isLog, setIsLog] = useState(false);
+            const [logData, setLogData] = useState({ act: '', amt: '' });
+
+            const filtered = members.filter(m => (m.Type || 'MAGSO Member') === tab);
+
+            const handleLog = async () => {
+                await api.addTransaction({ Date: new Date().toISOString().split('T')[0], Member_Name: sel.Name, Activity: logData.act, Amount: Number(logData.amt), Mode: 'Cash', Verified_By_Treasurer: 'No' });
+                setIsLog(false);
+                setSel(null);
+                refresh();
+            };
+
+            return (
+                <div className="space-y-6">
+                    <div className="flex p-1 bg-slate-100 rounded-2xl w-fit">
+                        {['Team', 'MAGSO Member'].map(t => (
+                            <button key={t} onClick={() => setTab(t)} className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${tab === t ? 'bg-white text-primary shadow-sm' : 'text-slate-500'}`}>
+                                {t === 'Team' ? 'Team' : 'MAGSO Members'}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {filtered.map(m => (
+                            <div key={m.Reg_Number} onClick={() => setSel(m)} className="bg-white p-4 rounded-2xl border border-slate-100 cursor-pointer hover:shadow-md transition-all flex items-center gap-4">
+                                <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center text-primary"><Icon name="user" /></div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-bold truncate">{m.Name}</p>
+                                    <p className="text-xs text-slate-500">{m.Role}</p>
+                                </div>
+                                {tab === 'Team' ? <div className="w-2 h-2 bg-emerald-500 rounded-full" /> : Number(m.Total_Owed) > 0 && <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />}
+                            </div>
+                        ))}
+                    </div>
+                    <AnimatePresence>
+                        {sel && (
+                            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSel(null)} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+                                <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} className="bg-white w-full max-w-md rounded-[2.5rem] overflow-hidden relative z-10">
+                                    <div className="bg-primary p-8 text-white">
+                                        <h2 className="text-2xl font-bold">{sel.Name}</h2>
+                                        <p className="opacity-70">{sel.Role}</p>
+                                    </div>
+                                    <div className="p-8 space-y-6">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="p-3 bg-slate-50 rounded-2xl"><p className="text-[10px] font-bold text-slate-400 uppercase">Year</p><p className="font-bold">{sel.Year}</p></div>
+                                            <div className="p-3 bg-slate-50 rounded-2xl"><p className="text-[10px] font-bold text-slate-400 uppercase">Owed</p><p className="font-bold">MK {Number(sel.Total_Owed).toLocaleString()}</p></div>
+                                        </div>
+                                        {isLog ? (
+                                            <div className="space-y-3 p-4 bg-slate-50 rounded-2xl">
+                                                <input placeholder="Activity" value={logData.act} onChange={e => setLogData({...logData, act: e.target.value})} className="w-full px-3 py-2 rounded-xl border" />
+                                                <input type="number" placeholder="Amount" value={logData.amt} onChange={e => setLogData({...logData, amt: e.target.value})} className="w-full px-3 py-2 rounded-xl border" />
+                                                <button onClick={handleLog} className="w-full bg-emerald-600 text-white py-2 rounded-xl font-bold">Confirm</button>
+                                            </div>
+                                        ) : (
+                                            <button onClick={() => setIsLog(true)} className="w-full flex items-center justify-center gap-2 bg-emerald-50 text-emerald-700 py-4 rounded-2xl font-bold border border-emerald-100">
+                                                <Icon name="shopping-cart" size={20} /> Log Purchase
+                                            </button>
+                                        )}
+                                    </div>
+                                </motion.div>
+                            </div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            );
+        }
+
+        function Activities({ tasks, events, refresh }) {
+            const { user } = useContext(AuthContext);
+            const [selDate, setSelDate] = useState(new Date());
+            const [showCongrats, setShowCongrats] = useState(false);
+
+            const handleQuick = async (act, amt) => {
+                await api.addTransaction({ Date: format(new Date(), 'yyyy-MM-dd'), Member_Name: user.Name, Activity: act, Amount: amt, Mode: 'Cash', Verified_By_Treasurer: 'No' });
+                refresh();
+            };
+
+            const toggle = async (t) => {
+                const next = t.Status === 'Done' ? 'Pending' : 'Done';
+                await api.updateTask(t.Task_Name, { Status: next });
+                if (next === 'Done') { setShowCongrats(true); setTimeout(() => setShowCongrats(false), 3000); }
+                refresh();
+            };
+
+            const dayEvents = events.filter(e => isSameDay(parseISO(e.Date), selDate));
+
+            return (
+                <div className="space-y-8">
+                    <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                        <button onClick={() => handleQuick('Car Wash', 2000)} className="flex-shrink-0 bg-emerald-50 text-emerald-700 px-4 py-2 rounded-xl text-sm font-bold border border-emerald-100">Car Wash - MK 2000</button>
+                        <button onClick={() => handleQuick('Shoe Polish', 500)} className="flex-shrink-0 bg-amber-50 text-amber-700 px-4 py-2 rounded-xl text-sm font-bold border border-amber-100">Shoe Polish - MK 500</button>
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div className="lg:col-span-2 space-y-6">
+                            <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                                <h3 className="font-bold mb-4">Calendar</h3>
+                                <div className="grid grid-cols-7 gap-1">
+                                    {/* Simplified Calendar View */}
+                                    {Array.from({ length: 31 }).map((_, i) => (
+                                        <div key={i} onClick={() => setSelDate(new Date(2026, 1, i + 1))} className={`aspect-square flex items-center justify-center rounded-xl cursor-pointer text-xs font-bold ${isSameDay(new Date(2026, 1, i + 1), selDate) ? 'bg-primary text-white' : 'hover:bg-slate-50'}`}>
+                                            {i + 1}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="bg-slate-50 p-6 rounded-[2.5rem]">
+                                <h4 className="font-bold mb-4">Events for {format(selDate, 'MMM do')}</h4>
+                                {dayEvents.length > 0 ? dayEvents.map((e, i) => (
+                                    <div key={i} className="bg-white p-4 rounded-2xl mb-3 shadow-sm">
+                                        <p className="font-bold">{e.Name}</p>
+                                        <p className="text-xs text-slate-500">{e.Location}</p>
+                                    </div>
+                                )) : <p className="text-slate-400 italic text-sm">No events.</p>}
+                            </div>
+                        </div>
+                        <div className="space-y-4">
+                            <h3 className="font-bold">Tasks</h3>
+                            {tasks.map((t, i) => (
+                                <div key={i} className={`bg-white p-4 rounded-2xl border border-slate-100 flex items-center gap-3 ${t.Status === 'Done' ? 'opacity-50' : ''}`}>
+                                    <button onClick={() => toggle(t)} className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center ${t.Status === 'Done' ? 'bg-primary border-primary text-white' : 'border-slate-200'}`}><Icon name="check" size={14} /></button>
+                                    <div className="flex-1 min-w-0">
+                                        <p className={`font-bold text-sm ${t.Status === 'Done' ? 'line-through' : ''}`}>{t.Task_Name}</p>
+                                        <p className="text-[10px] text-slate-500">{t.Assigned_To}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <AnimatePresence>
+                        {showCongrats && (
+                            <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-primary text-white px-8 py-4 rounded-3xl shadow-2xl flex items-center gap-4">
+                                <div className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center"><Icon name="check-circle-2" /></div>
+                                <div><p className="font-bold">Congratulations!</p><p className="text-white/70 text-sm">Task completed.</p></div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            );
+        }
+
+        function App() {
+            const { user, loading } = useContext(AuthContext);
+            const [view, setView] = useState('dashboard');
+            const [data, setData] = useState({ members: [], transactions: [], tasks: [], events: [] });
+            const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+            const refresh = async () => {
+                const [m, t, tk, e] = await Promise.all([api.getMembers(), api.getTransactions(), api.getTasks(), api.getEvents()]);
+                setData({ members: m, transactions: t, tasks: tk, events: e });
+            };
+
+            useEffect(() => {
+                if (user) refresh();
+                const hOnline = () => { setIsOnline(true); syncService.processQueue(); };
+                const hOffline = () => setIsOnline(false);
+                window.addEventListener('online', hOnline);
+                window.addEventListener('offline', hOffline);
+                return () => { window.removeEventListener('online', hOnline); window.removeEventListener('offline', hOffline); };
+            }, [user]);
+
+            if (loading) return null;
+            if (!user) return <Login />;
+
+            return (
+                <div className="min-h-screen flex flex-col md:flex-row">
+                    {/* Sidebar */}
+                    <aside className="hidden md:flex w-64 bg-primary text-white flex-col p-6">
+                        <h1 className="text-2xl font-bold mb-8 text-accent">Fundraising Manager</h1>
+                        <nav className="space-y-2 flex-1">
+                            {[
+                                { id: 'dashboard', icon: 'layout-dashboard', label: 'Dashboard' },
+                                { id: 'people', icon: 'users', label: 'People' },
+                                { id: 'activities', icon: 'check-square', label: 'Activities' }
+                            ].map(item => (
+                                <button key={item.id} onClick={() => setView(item.id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${view === item.id ? 'bg-white text-primary' : 'text-white/60 hover:bg-white/10'}`}>
+                                    <Icon name={item.icon} size={20} /> {item.label}
+                                </button>
+                            ))}
+                        </nav>
+                        <div className="pt-6 border-t border-white/10">
+                            <p className="text-xs font-bold text-white/40 uppercase mb-2">Logged in as</p>
+                            <p className="font-bold truncate">{user.Name}</p>
+                        </div>
+                    </aside>
+
+                    {/* Mobile Header */}
+                    <header className="md:hidden bg-primary text-white p-4 flex justify-between items-center">
+                        <h1 className="font-bold">Fundraising Manager</h1>
+                        {!isOnline && <Icon name="wifi-off" className="text-red-400 animate-pulse" />}
+                    </header>
+
+                    {/* Main Content */}
+                    <main className="flex-1 p-4 md:p-8 overflow-y-auto pb-24 md:pb-8">
+                        {view === 'dashboard' && <Dashboard transactions={data.transactions} members={data.members} />}
+                        {view === 'people' && <People members={data.members} transactions={data.transactions} refresh={refresh} />}
+                        {view === 'activities' && <Activities tasks={data.tasks} events={data.events} refresh={refresh} />}
+                    </main>
+
+                    {/* Mobile Nav */}
+                    <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t p-2 flex justify-around items-center z-40">
+                        {[
+                            { id: 'dashboard', icon: 'layout-dashboard' },
+                            { id: 'people', icon: 'users' },
+                            { id: 'activities', icon: 'check-square' }
+                        ].map(item => (
+                            <button key={item.id} onClick={() => setView(item.id)} className={`p-3 rounded-2xl transition-all ${view === item.id ? 'bg-primary text-white shadow-lg' : 'text-slate-400'}`}>
+                                <Icon name={item.icon} />
+                            </button>
+                        ))}
+                    </nav>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<AuthProvider><App /></AuthProvider>);
+
+        // Utility
+        function cn(...inputs) { return inputs.filter(Boolean).join(' '); }
+        const format = (date, fmt) => {
+            const d = new Date(date);
+            if (fmt === 'yyyy-MM-dd') return d.toISOString().split('T')[0];
+            if (fmt === 'MMMM do, yyyy') return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+            if (fmt === 'MMM do') return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            return d.toLocaleDateString();
+        };
+        const isSameDay = (d1, d2) => d1.toDateString() === d2.toDateString();
+        const parseISO = (s) => new Date(s);
+    </script>
+</body>
+</html>
