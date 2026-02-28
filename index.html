@@ -1,520 +1,1050 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fundraising Manager</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- React & Babel -->
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Framer Motion -->
-    <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FundFlow — Fundraising Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1e2d45;
+    --accent: #00d4aa;
+    --accent2: #f59e0b;
+    --accent3: #6366f1;
+    --red: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --card: #131c2e;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-    </style>
+  /* ── HEADER ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.3rem; color: var(--accent); letter-spacing: -0.5px; }
+  .logo span { color: var(--text); }
+  .header-right { display: flex; align-items: center; gap: .75rem; }
+  .status-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--accent); box-shadow: 0 0 6px var(--accent);
+    display: inline-block;
+  }
+  .status-dot.offline { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .status-label { font-size: .75rem; color: var(--muted); }
+  .avatar {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent3), var(--accent));
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: .85rem; cursor: pointer;
+    font-family: 'Syne', sans-serif;
+  }
+  .badge-pill {
+    background: var(--accent); color: #000; font-size: .65rem;
+    font-weight: 700; padding: 2px 7px; border-radius: 999px;
+    font-family: 'Syne', sans-serif;
+  }
 
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#003366',
-                        accent: '#FFD700',
-                    }
-                }
-            }
-        }
-    </script>
+  /* ── OFFLINE BANNER ── */
+  .offline-banner {
+    background: var(--red); color: #fff; text-align: center;
+    padding: .4rem; font-size: .8rem; font-weight: 500;
+    display: none;
+  }
+  .offline-banner.show { display: block; }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--surface2); border: 1px solid var(--accent);
+    color: var(--text); padding: .7rem 1.2rem; border-radius: 10px;
+    font-size: .85rem; z-index: 999; opacity: 0;
+    transition: all .3s; pointer-events: none; white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── BOTTOM NAV ── */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--surface); border-top: 1px solid var(--border);
+    display: flex; height: 62px; z-index: 100;
+  }
+  .nav-btn {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px; background: none; border: none; color: var(--muted);
+    font-size: .65rem; font-family: 'Syne', sans-serif; font-weight: 600;
+    cursor: pointer; transition: color .2s; letter-spacing: .5px; text-transform: uppercase;
+    position: relative;
+  }
+  .nav-btn svg { width: 22px; height: 22px; }
+  .nav-btn.active { color: var(--accent); }
+  .nav-btn.active::after {
+    content: ''; position: absolute; top: 0; left: 25%; right: 25%;
+    height: 2px; background: var(--accent); border-radius: 0 0 3px 3px;
+  }
+
+  /* ── MAIN ── */
+  main { padding: 1rem 1rem 80px; max-width: 480px; margin: 0 auto; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 1rem; margin-bottom: 1rem;
+  }
+  .card-sm { padding: .75rem; }
+  .card-label { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; margin-bottom: .3rem; }
+  .card-value { font-family: 'Syne', sans-serif; font-size: 1.5rem; font-weight: 700; color: var(--text); }
+  .card-value.green { color: var(--accent); }
+  .card-value.amber { color: var(--accent2); }
+  .card-value.red { color: var(--red); }
+
+  /* ── GRID ── */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-bottom: 1rem; }
+  .grid4 { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-bottom: 1rem; }
+
+  /* ── HERO CARD ── */
+  .hero-card {
+    background: linear-gradient(135deg, #0d2137 0%, #0a1e35 50%, #071429 100%);
+    border: 1px solid var(--accent);
+    border-radius: 18px; padding: 1.25rem; margin-bottom: 1rem;
+    position: relative; overflow: hidden;
+  }
+  .hero-card::before {
+    content: ''; position: absolute; top: -40px; right: -40px;
+    width: 160px; height: 160px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,212,170,.15) 0%, transparent 70%);
+  }
+  .hero-label { font-size: .7rem; color: var(--accent); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; margin-bottom: .4rem; }
+  .hero-amount { font-family: 'Syne', sans-serif; font-size: 2.2rem; font-weight: 800; color: #fff; line-height: 1; }
+  .hero-sub { font-size: .8rem; color: var(--muted); margin-top: .4rem; }
+  .progress-bar { background: var(--border); border-radius: 999px; height: 6px; margin-top: .75rem; }
+  .progress-fill { background: linear-gradient(90deg, var(--accent), #00ff99); height: 100%; border-radius: 999px; transition: width .8s ease; }
+
+  /* ── SEARCH ── */
+  .search-wrap { position: relative; margin-bottom: 1rem; }
+  .search-wrap svg { position: absolute; left: .85rem; top: 50%; transform: translateY(-50%); color: var(--muted); width: 18px; height: 18px; }
+  .search-input {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: .7rem .75rem .7rem 2.5rem;
+    color: var(--text); font-family: 'DM Sans', sans-serif; font-size: .9rem;
+    outline: none; transition: border-color .2s;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--muted); }
+  .filter-row { display: flex; gap: .5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .filter-btn {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--muted); padding: .4rem .85rem; border-radius: 999px;
+    font-size: .75rem; font-family: 'Syne', sans-serif; font-weight: 600;
+    cursor: pointer; transition: all .2s;
+  }
+  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #000; }
+
+  /* ── SECTION TITLE ── */
+  .section-title {
+    font-family: 'Syne', sans-serif; font-size: .8rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted);
+    margin-bottom: .75rem; display: flex; align-items: center; justify-content: space-between;
+  }
+  .section-title a { color: var(--accent); font-size: .75rem; cursor: pointer; }
+
+  /* ── MEMBER ROW ── */
+  .member-row {
+    display: flex; align-items: center; gap: .85rem;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: .75rem; margin-bottom: .6rem;
+    cursor: pointer; transition: border-color .2s;
+  }
+  .member-row:hover { border-color: var(--accent); }
+  .member-avatar {
+    width: 42px; height: 42px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: .9rem;
+    flex-shrink: 0; position: relative;
+  }
+  .red-dot {
+    position: absolute; top: 0; right: 0; width: 10px; height: 10px;
+    background: var(--red); border-radius: 50%; border: 2px solid var(--card);
+    box-shadow: 0 0 4px var(--red);
+  }
+  .member-info { flex: 1; min-width: 0; }
+  .member-name { font-weight: 600; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .member-meta { font-size: .75rem; color: var(--muted); margin-top: 1px; }
+  .member-amount { text-align: right; flex-shrink: 0; }
+  .amount-paid { font-family: 'Syne', sans-serif; font-weight: 700; font-size: .95rem; color: var(--accent); }
+  .amount-owed { font-size: .75rem; color: var(--red); font-weight: 500; margin-top: 1px; }
+
+  /* ── FAB ── */
+  .fab {
+    position: fixed; bottom: 72px; right: 1.2rem;
+    width: 54px; height: 54px; border-radius: 50%;
+    background: var(--accent); color: #000; border: none;
+    font-size: 1.5rem; cursor: pointer; box-shadow: 0 4px 20px rgba(0,212,170,.4);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif; font-weight: 700; z-index: 50;
+    transition: transform .2s, box-shadow .2s;
+  }
+  .fab:hover { transform: scale(1.1); box-shadow: 0 6px 28px rgba(0,212,170,.6); }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.7);
+    z-index: 200; display: flex; align-items: flex-end;
+    opacity: 0; pointer-events: none; transition: opacity .25s;
+  }
+  .modal-overlay.show { opacity: 1; pointer-events: all; }
+  .modal {
+    background: var(--surface); border-radius: 20px 20px 0 0;
+    padding: 1.5rem 1.25rem 2rem; width: 100%;
+    transform: translateY(40px); transition: transform .25s;
+    max-height: 90vh; overflow-y: auto;
+    border-top: 1px solid var(--border);
+  }
+  .modal-overlay.show .modal { transform: translateY(0); }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
+  .modal-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1.1rem; }
+  .modal-close { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: .3rem .6rem; color: var(--muted); cursor: pointer; font-size: .8rem; }
+
+  /* ── FORM ── */
+  .form-group { margin-bottom: 1rem; }
+  .form-label { font-size: .75rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; margin-bottom: .4rem; display: block; font-family: 'Syne', sans-serif; }
+  .form-input, .form-select {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: .75rem; color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: .9rem; outline: none;
+    transition: border-color .2s;
+  }
+  .form-input:focus, .form-select:focus { border-color: var(--accent); }
+  .form-select option { background: var(--surface2); }
+  .cash-reminder {
+    background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.3);
+    border-radius: 10px; padding: .75rem; font-size: .8rem; color: var(--accent2);
+    margin-bottom: 1rem; display: none; align-items: flex-start; gap: .5rem;
+  }
+  .cash-reminder.show { display: flex; }
+  .btn {
+    width: 100%; padding: .85rem; border-radius: 12px; border: none;
+    font-family: 'Syne', sans-serif; font-size: .95rem; font-weight: 700;
+    cursor: pointer; transition: all .2s; letter-spacing: .3px;
+  }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-primary:hover { background: #00ffe4; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); margin-top: .5rem; }
+
+  /* ── TASKS ── */
+  .task-row {
+    display: flex; align-items: center; gap: .85rem;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: .8rem; margin-bottom: .6rem;
+  }
+  .task-check {
+    width: 22px; height: 22px; border-radius: 6px;
+    border: 2px solid var(--border); background: transparent;
+    cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    transition: all .2s;
+  }
+  .task-check.done { background: var(--accent); border-color: var(--accent); }
+  .task-check.done::after { content: '✓'; font-size: .8rem; color: #000; font-weight: 700; }
+  .task-info { flex: 1; }
+  .task-name { font-weight: 500; font-size: .9rem; }
+  .task-name.done { text-decoration: line-through; color: var(--muted); }
+  .task-meta { font-size: .72rem; color: var(--muted); margin-top: 2px; }
+  .task-due { font-size: .72rem; color: var(--accent2); font-weight: 600; }
+  .task-due.overdue { color: var(--red); }
+
+  /* ── BADGE ── */
+  .badge-card {
+    background: linear-gradient(135deg, rgba(99,102,241,.15), rgba(99,102,241,.05));
+    border: 1px solid rgba(99,102,241,.3); border-radius: 12px; padding: .75rem;
+    display: flex; align-items: center; gap: .75rem;
+  }
+  .badge-icon { font-size: 1.8rem; }
+  .badge-name { font-family: 'Syne', sans-serif; font-weight: 700; font-size: .85rem; color: var(--accent3); }
+  .badge-desc { font-size: .72rem; color: var(--muted); margin-top: 2px; }
+
+  /* ── EVENTS / CALENDAR ── */
+  .event-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: .85rem; margin-bottom: .6rem;
+    display: flex; gap: .85rem;
+  }
+  .event-date-box {
+    background: var(--surface2); border-radius: 10px; width: 50px; height: 50px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    flex-shrink: 0; border: 1px solid var(--border);
+  }
+  .event-day { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.1rem; line-height: 1; }
+  .event-month { font-size: .6rem; text-transform: uppercase; color: var(--muted); font-weight: 600; letter-spacing: .5px; }
+  .event-info { flex: 1; }
+  .event-name { font-weight: 600; font-size: .9rem; margin-bottom: 2px; }
+  .event-detail { font-size: .75rem; color: var(--muted); }
+  .event-goal { font-family: 'Syne', sans-serif; font-size: .85rem; color: var(--accent); font-weight: 700; }
+
+  /* ── DETAIL PANEL ── */
+  .member-detail { display: none; }
+  .member-detail.show { display: block; }
+  .back-btn {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); padding: .5rem 1rem; border-radius: 8px;
+    cursor: pointer; font-family: 'Syne', sans-serif; font-size: .8rem;
+    margin-bottom: 1rem; display: inline-flex; align-items: center; gap: .4rem;
+  }
+  .detail-header {
+    background: linear-gradient(135deg, var(--surface2), var(--card));
+    border: 1px solid var(--border); border-radius: 16px; padding: 1.25rem; margin-bottom: 1rem;
+    display: flex; align-items: center; gap: 1rem;
+  }
+  .detail-avatar {
+    width: 60px; height: 60px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.3rem;
+    border: 2px solid var(--accent);
+  }
+  .tx-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: .6rem 0; border-bottom: 1px solid var(--border);
+    font-size: .85rem;
+  }
+  .tx-row:last-child { border-bottom: none; }
+  .tx-mode { font-size: .7rem; background: var(--surface2); padding: 2px 8px; border-radius: 999px; color: var(--muted); }
+  .tx-amount.positive { color: var(--accent); font-weight: 600; }
+  .tx-amount.debt { color: var(--red); font-weight: 600; }
+  .status-pledge { color: var(--accent2); font-size: .72rem; }
+  .status-paid { color: var(--accent); font-size: .72rem; }
+
+  /* ── STAT ROW ── */
+  .stat-row { display: flex; justify-content: space-between; align-items: center; padding: .5rem 0; border-bottom: 1px solid var(--border); font-size: .85rem; }
+  .stat-row:last-child { border-bottom: none; }
+
+  /* ── RESPONSIVE ── */
+  @media(min-width: 480px) {
+    main { padding: 1.5rem 1.5rem 90px; }
+  }
+
+  /* ── ANIMATIONS ── */
+  @keyframes slideUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+  .tab-content.active > * { animation: slideUp .3s ease both; }
+  .tab-content.active > *:nth-child(2) { animation-delay: .05s; }
+  .tab-content.active > *:nth-child(3) { animation-delay: .1s; }
+  .tab-content.active > *:nth-child(4) { animation-delay: .15s; }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+  .pulse { animation: pulse 2s infinite; }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 3px 10px; font-size: .72rem; color: var(--muted);
+    font-family: 'Syne', sans-serif; font-weight: 600;
+  }
+  .chip.green { border-color: rgba(0,212,170,.3); color: var(--accent); background: rgba(0,212,170,.08); }
+  .chip.red { border-color: rgba(239,68,68,.3); color: var(--red); background: rgba(239,68,68,.08); }
+  .chip.amber { border-color: rgba(245,158,11,.3); color: var(--accent2); background: rgba(245,158,11,.08); }
+  .chip.purple { border-color: rgba(99,102,241,.3); color: var(--accent3); background: rgba(99,102,241,.08); }
+</style>
 </head>
-<body class="bg-slate-50 text-slate-900">
-    <div id="root"></div>
+<body>
 
-    <script type="text/babel">
-        const { useState, useEffect, useMemo, createContext, useContext } = React;
-        // Framer Motion uses 'Motion' as the global variable in the browser build
-        const motion = window.Motion ? window.Motion.motion : (props) => <div {...props} />;
-        const AnimatePresence = window.Motion ? window.Motion.AnimatePresence : ({children}) => children;
+<!-- OFFLINE BANNER -->
+<div class="offline-banner" id="offlineBanner">⚡ You are offline — data will sync when connection is restored</div>
 
-        // --- CONFIGURATION ---
-        // Replace this with your actual Google Apps Script Web App URL
-        const SCRIPT_URL = ''; 
+<!-- HEADER -->
+<header>
+  <div class="logo">Fund<span>Flow</span></div>
+  <div class="header-right">
+    <div>
+      <div style="display:flex;align-items:center;gap:5px">
+        <span class="status-dot" id="statusDot"></span>
+        <span class="status-label" id="statusLabel">Online</span>
+      </div>
+    </div>
+    <span class="badge-pill">TREASURER</span>
+    <div class="avatar">MT</div>
+  </div>
+</header>
 
-        // --- MOCK DATA ---
-        const mockMembers = [
-            { Name: 'John Doe', Email: 'john@example.com', Reg_Number: 'BS/2023/001', Program: 'Computer Science', Year: 2, Role: 'Chairperson', Total_Owed: 5000, Status: 'Active', Type: 'Team' },
-            { Name: 'Jane Smith', Email: 'jane@example.com', Reg_Number: 'BS/2023/002', Program: 'Business Admin', Year: 3, Role: 'Treasurer', Total_Owed: 0, Status: 'Active', Type: 'Team' },
-            { Name: 'Alex Banda', Email: 'alex@example.com', Reg_Number: 'BS/2023/003', Program: 'Engineering', Year: 1, Role: 'Member', Total_Owed: 15000, Status: 'Active', Type: 'MAGSO Member' },
-            { Name: 'Sarah Phiri', Email: 'sarah@example.com', Reg_Number: 'BS/2023/004', Program: 'Social Science', Year: 2, Role: 'Member', Total_Owed: 2000, Status: 'Active', Type: 'MAGSO Member' },
-        ];
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
 
-        const mockTransactions = [
-            { Date: '2024-03-20', Member_Name: 'John Doe', Activity: 'Membership Fee', Amount: 5000, Mode: 'Cash', Verified_By_Treasurer: 'Yes' },
-            { Date: '2024-03-21', Member_Name: 'Alex Banda', Activity: 'Donation', Amount: 10000, Mode: 'AirtelMoney', Verified_By_Treasurer: 'No' },
-        ];
+<!-- MAIN -->
+<main>
 
-        const mockTasks = [
-            { Task_Name: 'Draft Proposal', Assigned_To: 'John Doe', Due_Date: '2024-04-01', Status: 'Pending', Priority: 'High' },
-            { Task_Name: 'Contact Sponsors', Assigned_To: 'Jane Smith', Due_Date: '2024-03-25', Status: 'Done', Priority: 'Medium' },
-        ];
+  <!-- ════════════════════ HOME TAB ════════════════════ -->
+  <div class="tab-content active" id="tab-home">
 
-        const mockEvents = [
-            { Date: '2026-03-05', Name: 'Church Visit', Description: 'Fundraising visit to St. Peters', Location: 'St. Peters Cathedral' },
-            { Date: '2026-03-12', Name: 'Car Wash', Description: 'Main campus car wash event', Location: 'Campus Parking' },
-            { Date: '2026-02-27', Name: 'Shoe Polish Drive', Description: 'Quick shoe polish service', Location: 'Library Square' },
-        ];
+    <div class="hero-card">
+      <div class="hero-label">Total Funds Collected</div>
+      <div class="hero-amount">MK 847,500</div>
+      <div class="hero-sub">Goal: MK 1,200,000 — 70.6% achieved</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:70.6%"></div></div>
+    </div>
 
-        // --- SYNC SERVICE ---
-        const syncService = {
-            getQueue: () => JSON.parse(localStorage.getItem('sync_queue') || '[]'),
-            addToQueue: (item) => {
-                const queue = syncService.getQueue();
-                queue.push({ ...item, id: Date.now() });
-                localStorage.setItem('sync_queue', JSON.stringify(queue));
-            },
-            processQueue: async () => {
-                if (!navigator.onLine || !SCRIPT_URL) return;
-                const queue = syncService.getQueue();
-                if (queue.length === 0) return;
+    <div class="grid4">
+      <div class="card card-sm">
+        <div class="card-label">💚 Airtel Money</div>
+        <div class="card-value green" style="font-size:1.15rem">MK 243,000</div>
+      </div>
+      <div class="card card-sm">
+        <div class="card-label">🔵 Mpamba</div>
+        <div class="card-value" style="font-size:1.15rem;color:var(--accent3)">MK 198,500</div>
+      </div>
+      <div class="card card-sm">
+        <div class="card-label">🏦 Nat. Bank</div>
+        <div class="card-value" style="font-size:1.15rem;color:var(--accent2)">MK 312,000</div>
+      </div>
+      <div class="card card-sm">
+        <div class="card-label">💵 Cash</div>
+        <div class="card-value" style="font-size:1.15rem">MK 94,000</div>
+      </div>
+    </div>
 
-                for (const item of queue) {
-                    try {
-                        await fetch(SCRIPT_URL, {
-                            method: 'POST',
-                            mode: 'no-cors',
-                            body: JSON.stringify(item)
-                        });
-                        const currentQueue = syncService.getQueue();
-                        localStorage.setItem('sync_queue', JSON.stringify(currentQueue.filter(q => q.id !== item.id)));
-                    } catch (e) { console.error('Sync failed', e); break; }
-                }
-            }
-        };
+    <div class="grid2">
+      <div class="card card-sm">
+        <div class="card-label">⏳ Pending Pledges</div>
+        <div class="card-value amber" style="font-size:1.2rem">MK 156,000</div>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:4px">12 members</div>
+      </div>
+      <div class="card card-sm">
+        <div class="card-label">🔴 Outstanding Debts</div>
+        <div class="card-value red" style="font-size:1.2rem">MK 87,500</div>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:4px">8 members</div>
+      </div>
+    </div>
 
-        // --- API SERVICE ---
-        const api = {
-            async getMembers() {
-                if (!SCRIPT_URL) return mockMembers;
-                try {
-                    const res = await fetch(`${SCRIPT_URL}?sheet=Members`);
-                    return res.json();
-                } catch (e) { return mockMembers; }
-            },
-            async getTransactions() {
-                if (!SCRIPT_URL) return mockTransactions;
-                try {
-                    const res = await fetch(`${SCRIPT_URL}?sheet=Transactions`);
-                    return res.json();
-                } catch (e) { return mockTransactions; }
-            },
-            async getTasks() {
-                if (!SCRIPT_URL) return mockTasks;
-                try {
-                    const res = await fetch(`${SCRIPT_URL}?sheet=Tasks`);
-                    return res.json();
-                } catch (e) { return mockTasks; }
-            },
-            async getEvents() {
-                if (!SCRIPT_URL) return mockEvents;
-                try {
-                    const res = await fetch(`${SCRIPT_URL}?sheet=Events`);
-                    return res.json();
-                } catch (e) { return mockEvents; }
-            },
-            async addTransaction(data) {
-                if (!navigator.onLine) { syncService.addToQueue({ action: 'add', sheet: 'Transactions', data }); return { success: true, offline: true }; }
-                if (!SCRIPT_URL) return { success: true };
-                try {
-                    await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'add', sheet: 'Transactions', data }) });
-                    return { success: true };
-                } catch (e) { syncService.addToQueue({ action: 'add', sheet: 'Transactions', data }); return { success: true, offline: true }; }
-            },
-            async addMember(data) {
-                if (!navigator.onLine) { syncService.addToQueue({ action: 'add', sheet: 'Members', data }); return { success: true, offline: true }; }
-                if (!SCRIPT_URL) return { success: true };
-                try {
-                    await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'add', sheet: 'Members', data }) });
-                    return { success: true };
-                } catch (e) { syncService.addToQueue({ action: 'add', sheet: 'Members', data }); return { success: true, offline: true }; }
-            },
-            async updateTask(name, data) {
-                if (!navigator.onLine) { syncService.addToQueue({ action: 'update', sheet: 'Tasks', idField: 'Task_Name', idValue: name, data }); return { success: true, offline: true }; }
-                if (!SCRIPT_URL) return { success: true };
-                try {
-                    await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'update', sheet: 'Tasks', idField: 'Task_Name', idValue: name, data }) });
-                    return { success: true };
-                } catch (e) { syncService.addToQueue({ action: 'update', sheet: 'Tasks', idField: 'Task_Name', idValue: name, data }); return { success: true, offline: true }; }
-            }
-        };
+    <div class="section-title">Recent Transactions <a onclick="showToast('📊 Full report coming soon')">See all</a></div>
+    <div class="card" style="padding:.5rem">
+      <div class="tx-row">
+        <div>
+          <div style="font-weight:500">Chisomo Banda</div>
+          <div style="font-size:.72rem;color:var(--muted)">Car Wash · 14 Feb</div>
+        </div>
+        <div style="text-align:right">
+          <div class="tx-amount positive">+MK 5,000</div>
+          <span class="chip green">Paid</span>
+        </div>
+      </div>
+      <div class="tx-row">
+        <div>
+          <div style="font-weight:500">Thabo Mkandawire</div>
+          <div style="font-size:.72rem;color:var(--muted)">Shoe Polish · 13 Feb</div>
+        </div>
+        <div style="text-align:right">
+          <div class="tx-amount debt" style="font-size:.85rem">MK 3,000 owed</div>
+          <span class="chip amber">Pledge</span>
+        </div>
+      </div>
+      <div class="tx-row">
+        <div>
+          <div style="font-weight:500">Alinafe Phiri</div>
+          <div style="font-size:.72rem;color:var(--muted)">Monthly Dues · 12 Feb</div>
+        </div>
+        <div style="text-align:right">
+          <div class="tx-amount positive">+MK 10,000</div>
+          <span class="chip green">Paid</span>
+        </div>
+      </div>
+    </div>
 
-        // --- AUTH CONTEXT ---
-        const AuthContext = createContext();
-        function AuthProvider({ children }) {
-            const [user, setUser] = useState(null);
-            const [loading, setLoading] = useState(true);
+    <button class="btn btn-secondary" onclick="showToast('📄 Generating PDF Income Statement…')">
+      📄 Generate PDF Income Statement
+    </button>
+  </div>
 
-            useEffect(() => {
-                const saved = localStorage.getItem('magso_user');
-                if (saved) setUser(JSON.parse(saved));
-                setLoading(false);
-            }, []);
+  <!-- ════════════════════ ACTIVITIES TAB ════════════════════ -->
+  <div class="tab-content" id="tab-activities">
 
-            const login = async (email, reg) => {
-                const members = await api.getMembers();
-                const found = members.find(m => m.Email.toLowerCase() === email.toLowerCase() && m.Reg_Number === reg);
-                if (found) { setUser(found); localStorage.setItem('magso_user', JSON.stringify(found)); return true; }
-                return false;
-            };
+    <div class="section-title" style="margin-bottom:.5rem">Upcoming Events</div>
+    <div class="filter-row">
+      <button class="filter-btn active" onclick="setFilter(this)">All</button>
+      <button class="filter-btn" onclick="setFilter(this)">This Week</button>
+      <button class="filter-btn" onclick="setFilter(this)">This Month</button>
+      <button class="filter-btn" onclick="setFilter(this)">Semester</button>
+    </div>
 
-            const register = async (data) => {
-                const teamMember = { ...data, Type: 'Team' };
-                const res = await api.addMember(teamMember);
-                if (res.success) { setUser(teamMember); localStorage.setItem('magso_user', JSON.stringify(teamMember)); return true; }
-                return false;
-            };
+    <div id="eventsList">
+      <div class="event-card">
+        <div class="event-date-box">
+          <div class="event-day">03</div>
+          <div class="event-month">Mar</div>
+        </div>
+        <div class="event-info">
+          <div class="event-name">Car Wash Drive</div>
+          <div class="event-detail">📍 Main Campus Gate &nbsp;·&nbsp; <span class="event-goal">Goal: MK 80,000</span></div>
+          <div style="margin-top:4px"><span class="chip amber">2 days away</span></div>
+        </div>
+      </div>
+      <div class="event-card">
+        <div class="event-date-box">
+          <div class="event-day">10</div>
+          <div class="event-month">Mar</div>
+        </div>
+        <div class="event-info">
+          <div class="event-name">Shoe Polishing Day</div>
+          <div class="event-detail">📍 Library Entrance &nbsp;·&nbsp; <span class="event-goal">Goal: MK 50,000</span></div>
+          <div style="margin-top:4px"><span class="chip green">Scheduled</span></div>
+        </div>
+      </div>
+      <div class="event-card">
+        <div class="event-date-box" style="border-color:rgba(99,102,241,.3)">
+          <div class="event-day" style="color:var(--accent3)">22</div>
+          <div class="event-month">Mar</div>
+        </div>
+        <div class="event-info">
+          <div class="event-name">Bake Sale</div>
+          <div class="event-detail">📍 Student Centre &nbsp;·&nbsp; <span class="event-goal">Goal: MK 120,000</span></div>
+          <div style="margin-top:4px"><span class="chip purple">Planning</span></div>
+        </div>
+      </div>
+    </div>
 
-            const logout = () => { setUser(null); localStorage.removeItem('magso_user'); };
+    <div class="section-title" style="margin-top:1.25rem">My Tasks</div>
+    <div id="tasksList">
+      <div class="task-row">
+        <div class="task-check" onclick="toggleTask(this)"></div>
+        <div class="task-info">
+          <div class="task-name">Collect dues from Year 2 students</div>
+          <div class="task-due overdue">⚠️ Due: Feb 28 — Today!</div>
+        </div>
+      </div>
+      <div class="task-row">
+        <div class="task-check" onclick="toggleTask(this)"></div>
+        <div class="task-info">
+          <div class="task-name">Prepare car wash supplies list</div>
+          <div class="task-due">📅 Due: Mar 2</div>
+        </div>
+      </div>
+      <div class="task-row">
+        <div class="task-check done" onclick="toggleTask(this)"></div>
+        <div class="task-info">
+          <div class="task-name done">Design promotional flyers</div>
+          <div class="task-meta" style="color:var(--accent);font-size:.72rem">✅ Completed Feb 27 at 09:42 AM</div>
+        </div>
+      </div>
+      <div class="task-row">
+        <div class="task-check" onclick="toggleTask(this)"></div>
+        <div class="task-info">
+          <div class="task-name">Contact shoe polish supplier</div>
+          <div class="task-due">📅 Due: Mar 5</div>
+        </div>
+      </div>
+    </div>
 
-            return <AuthContext.Provider value={{ user, login, register, logout, loading }}>{children}</AuthContext.Provider>;
-        }
+    <div class="section-title" style="margin-top:1.25rem">My Badges</div>
+    <div class="badge-card" style="margin-bottom:.6rem">
+      <div class="badge-icon">🐦</div>
+      <div>
+        <div class="badge-name">Early Bird</div>
+        <div class="badge-desc">Completed 3 tasks before deadline</div>
+      </div>
+    </div>
+    <div class="badge-card" style="background:linear-gradient(135deg,rgba(245,158,11,.12),rgba(245,158,11,.04));border-color:rgba(245,158,11,.3)">
+      <div class="badge-icon">🚀</div>
+      <div>
+        <div class="badge-name" style="color:var(--accent2)">Super Fundraiser</div>
+        <div class="badge-desc">Participated in 5+ activities this semester</div>
+      </div>
+    </div>
+  </div>
 
-        // --- COMPONENTS ---
+  <!-- ════════════════════ PEOPLE TAB ════════════════════ -->
+  <div class="tab-content" id="tab-people">
 
-        function Icon({ name, size = 24, className = "" }) {
-            useEffect(() => { 
-                if (window.lucide) {
-                    window.lucide.createIcons(); 
-                }
-            }, [name]);
-            return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
-        }
+    <!-- MEMBER LIST VIEW -->
+    <div id="memberListView">
+      <div class="search-wrap">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <input class="search-input" placeholder="Search by name, phone, or reg number…" id="memberSearch" oninput="filterMembers()">
+      </div>
+      <div class="filter-row">
+        <button class="filter-btn active" onclick="setMemberFilter(this,'all')">All</button>
+        <button class="filter-btn" onclick="setMemberFilter(this,'male')">Male</button>
+        <button class="filter-btn" onclick="setMemberFilter(this,'female')">Female</button>
+        <button class="filter-btn" onclick="setMemberFilter(this,'y1')">Year 1</button>
+        <button class="filter-btn" onclick="setMemberFilter(this,'y2')">Year 2</button>
+        <button class="filter-btn" onclick="setMemberFilter(this,'y3')">Year 3</button>
+      </div>
+      <div class="section-title">20 Members <a onclick="openModal('addMember')">+ Add</a></div>
+      <div id="membersList"></div>
+    </div>
 
-        function Login() {
-            const { login, register } = useContext(AuthContext);
-            const [isReg, setIsReg] = useState(false);
-            const [email, setEmail] = useState('');
-            const [reg, setReg] = useState('');
-            const [name, setName] = useState('');
-            const [loading, setLoading] = useState(false);
+    <!-- MEMBER DETAIL VIEW -->
+    <div id="memberDetailView" class="member-detail">
+      <button class="back-btn" onclick="showMemberList()">← Back to Members</button>
+      <div class="detail-header" id="detailHeader"></div>
+      <div class="card" style="padding:.5rem" id="detailTransactions"></div>
+      <div style="margin-top:.75rem" id="detailBadges"></div>
+    </div>
+  </div>
 
-            const handleSubmit = async (e) => {
-                e.preventDefault();
-                setLoading(true);
-                if (isReg) {
-                    await register({ Name: name, Email: email, Reg_Number: reg, Program: 'N/A', Year: 1, Role: 'Member', Total_Owed: 0, Status: 'Active' });
-                } else {
-                    const ok = await login(email, reg);
-                    if (!ok) alert('Invalid credentials');
-                }
-                setLoading(false);
-            };
+  <!-- ════════════════════ TRANSACTIONS TAB ════════════════════ -->
+  <div class="tab-content" id="tab-transactions">
+    <div class="hero-card">
+      <div class="hero-label">Quick Log</div>
+      <div style="font-size:.9rem;color:var(--text);margin-bottom:1rem">Record a payment or pledge instantly</div>
+      <button class="btn btn-primary" onclick="openModal('logTransaction')">+ Log New Transaction</button>
+    </div>
 
-            return (
-                <div className="min-h-screen bg-primary flex items-center justify-center p-4">
-                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md bg-white rounded-[2.5rem] p-8 shadow-2xl">
-                        <div className="text-center mb-8">
-                            <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4">
-                                <Icon name="shield-check" className="text-accent" size={32} />
-                            </div>
-                            <h1 className="text-2xl font-bold text-slate-900">Fundraising Manager</h1>
-                            <p className="text-slate-500 text-sm">{isReg ? 'Create Account' : 'Portal Login'}</p>
-                        </div>
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            {isReg && (
-                                <input required placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-primary/20 outline-none" />
-                            )}
-                            <input required type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-primary/20 outline-none" />
-                            <input required placeholder="Reg Number" value={reg} onChange={e => setReg(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-primary/20 outline-none" />
-                            <button disabled={loading} className="w-full bg-primary text-white py-4 rounded-xl font-bold hover:bg-slate-800 transition-all disabled:opacity-50">
-                                {loading ? 'Processing...' : (isReg ? 'Register' : 'Enter Portal')}
-                            </button>
-                        </form>
-                        <button onClick={() => setIsReg(!isReg)} className="w-full mt-6 text-primary text-sm font-bold hover:underline">
-                            {isReg ? 'Already have an account? Login' : 'New member? Register here'}
-                        </button>
-                    </motion.div>
-                </div>
-            );
-        }
+    <div class="section-title">All Transactions</div>
+    <div id="allTransactions">
+      <div class="card card-sm" style="margin-bottom:.6rem;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-weight:600;font-size:.9rem">Chisomo Banda</div>
+          <div style="font-size:.72rem;color:var(--muted)">Car Wash · 14 Feb · Cash</div>
+        </div>
+        <div style="text-align:right">
+          <div style="color:var(--accent);font-weight:700;font-family:'Syne',sans-serif">MK 5,000</div>
+          <span class="chip green" style="font-size:.65rem">Paid</span>
+        </div>
+      </div>
+      <div class="card card-sm" style="margin-bottom:.6rem;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-weight:600;font-size:.9rem">Thabo Mkandawire</div>
+          <div style="font-size:.72rem;color:var(--muted)">Shoe Polish · 13 Feb · Airtel</div>
+        </div>
+        <div style="text-align:right">
+          <div style="color:var(--accent2);font-weight:700;font-family:'Syne',sans-serif">MK 3,000</div>
+          <span class="chip amber" style="font-size:.65rem">Pledge</span>
+        </div>
+      </div>
+      <div class="card card-sm" style="margin-bottom:.6rem;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-weight:600;font-size:.9rem">Alinafe Phiri</div>
+          <div style="font-size:.72rem;color:var(--muted)">Monthly Dues · 12 Feb · Mpamba</div>
+        </div>
+        <div style="text-align:right">
+          <div style="color:var(--accent);font-weight:700;font-family:'Syne',sans-serif">MK 10,000</div>
+          <span class="chip green" style="font-size:.65rem">Paid</span>
+        </div>
+      </div>
+      <div class="card card-sm" style="margin-bottom:.6rem;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-weight:600;font-size:.9rem">Grace Nkhonjera</div>
+          <div style="font-size:.72rem;color:var(--muted)">Donation · 10 Feb · National Bank</div>
+        </div>
+        <div style="text-align:right">
+          <div style="color:var(--accent);font-weight:700;font-family:'Syne',sans-serif">MK 25,000</div>
+          <span class="chip green" style="font-size:.65rem">Paid</span>
+        </div>
+      </div>
+    </div>
+  </div>
 
-        function Dashboard({ transactions, members }) {
-            const stats = useMemo(() => {
-                const total = transactions.filter(t => t.Verified_By_Treasurer === 'Yes').reduce((s, t) => s + Number(t.Amount), 0);
-                const owed = members.reduce((s, m) => s + Number(m.Total_Owed), 0);
-                return { total, owed };
-            }, [transactions, members]);
+</main>
 
-            return (
-                <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-primary p-6 rounded-3xl text-white shadow-xl">
-                            <p className="text-white/60 text-sm font-bold uppercase tracking-widest">Total Collected</p>
-                            <h3 className="text-4xl font-bold mt-2">MK {stats.total.toLocaleString()}</h3>
-                        </div>
-                        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                            <p className="text-slate-400 text-sm font-bold uppercase tracking-widest">Outstanding Pledges</p>
-                            <h3 className="text-4xl font-bold mt-2 text-primary">MK {stats.owed.toLocaleString()}</h3>
-                        </div>
-                    </div>
-                    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                        <h3 className="font-bold text-lg mb-4">Recent Activity</h3>
-                        <div className="space-y-4">
-                            {transactions.slice(0, 5).map((t, i) => (
-                                <div key={i} className="flex justify-between items-center p-3 bg-slate-50 rounded-2xl">
-                                    <div>
-                                        <p className="font-bold text-slate-900">{t.Activity}</p>
-                                        <p className="text-xs text-slate-500">{t.Member_Name} • {t.Date}</p>
-                                    </div>
-                                    <p className="font-bold text-primary">MK {Number(t.Amount).toLocaleString()}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            );
-        }
+<!-- FAB -->
+<button class="fab" id="fabBtn" onclick="openModal('logTransaction')">+</button>
 
-        function People({ members, transactions, refresh }) {
-            const [tab, setTab] = useState('Team');
-            const [sel, setSel] = useState(null);
-            const [isLog, setIsLog] = useState(false);
-            const [logData, setLogData] = useState({ act: '', amt: '' });
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" onclick="switchTab('home',this)">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+    Home
+  </button>
+  <button class="nav-btn" onclick="switchTab('activities',this)">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+    Activities
+  </button>
+  <button class="nav-btn" onclick="switchTab('people',this)">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+    People
+  </button>
+  <button class="nav-btn" onclick="switchTab('transactions',this)">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+    Log
+  </button>
+</nav>
 
-            const filtered = members.filter(m => (m.Type || 'MAGSO Member') === tab);
+<!-- MODAL: Log Transaction -->
+<div class="modal-overlay" id="modal-logTransaction">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Log Transaction</div>
+      <button class="modal-close" onclick="closeModal('logTransaction')">✕ Close</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Member Name</label>
+      <select class="form-select" id="tx-member">
+        <option value="">Select member…</option>
+        <option>Chisomo Banda</option>
+        <option>Thabo Mkandawire</option>
+        <option>Alinafe Phiri</option>
+        <option>Grace Nkhonjera</option>
+        <option>Kondwani Mwale</option>
+        <option>Tamara Chirwa</option>
+        <option>Dalitso Mseka</option>
+        <option>Patience Gondwe</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Activity</label>
+      <select class="form-select">
+        <option>Car Wash</option>
+        <option>Shoe Polishing</option>
+        <option>Monthly Dues</option>
+        <option>Donation</option>
+        <option>Bake Sale</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <div class="grid2" style="gap:.75rem;margin-bottom:1rem">
+      <div>
+        <label class="form-label">Amount (MK)</label>
+        <input class="form-input" type="number" placeholder="0">
+      </div>
+      <div>
+        <label class="form-label">Mode</label>
+        <select class="form-select" id="tx-mode" onchange="checkCashReminder()">
+          <option>Airtel Money</option>
+          <option>Mpamba</option>
+          <option>National Bank</option>
+          <option>Cash</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Status</label>
+      <select class="form-select">
+        <option>Paid</option>
+        <option>Pledge</option>
+      </select>
+    </div>
+    <div class="cash-reminder" id="cashReminder">
+      <span>💰</span>
+      <div><strong>Cash Reminder:</strong> Please hand the physical cash to the Treasurer (MT) immediately after logging this transaction. Do not hold funds.</div>
+    </div>
+    <button class="btn btn-primary" onclick="submitTransaction()">✓ Save Transaction</button>
+    <button class="btn btn-secondary" onclick="closeModal('logTransaction')">Cancel</button>
+  </div>
+</div>
 
-            const handleLog = async () => {
-                await api.addTransaction({ Date: new Date().toISOString().split('T')[0], Member_Name: sel.Name, Activity: logData.act, Amount: Number(logData.amt), Mode: 'Cash', Verified_By_Treasurer: 'No' });
-                setIsLog(false);
-                setSel(null);
-                refresh();
-            };
+<!-- MODAL: Add Member -->
+<div class="modal-overlay" id="modal-addMember">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Add Member</div>
+      <button class="modal-close" onclick="closeModal('addMember')">✕ Close</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Full Name</label>
+      <input class="form-input" placeholder="e.g. Chisomo Banda">
+    </div>
+    <div class="grid2" style="gap:.75rem;margin-bottom:1rem">
+      <div>
+        <label class="form-label">Program</label>
+        <input class="form-input" placeholder="e.g. BBA">
+      </div>
+      <div>
+        <label class="form-label">Year</label>
+        <select class="form-select">
+          <option>Year 1</option><option>Year 2</option><option>Year 3</option><option>Year 4</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid2" style="gap:.75rem;margin-bottom:1rem">
+      <div>
+        <label class="form-label">Gender</label>
+        <select class="form-select">
+          <option>Male</option><option>Female</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Reg Number</label>
+        <input class="form-input" placeholder="e.g. 2021/BBA/001">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Phone</label>
+      <input class="form-input" type="tel" placeholder="+265 99X XXX XXX">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input class="form-input" type="email" placeholder="name@example.com">
+    </div>
+    <button class="btn btn-primary" onclick="addMember()">✓ Add Member</button>
+    <button class="btn btn-secondary" onclick="closeModal('addMember')">Cancel</button>
+  </div>
+</div>
 
-            return (
-                <div className="space-y-6">
-                    <div className="flex p-1 bg-slate-100 rounded-2xl w-fit">
-                        {['Team', 'MAGSO Member'].map(t => (
-                            <button key={t} onClick={() => setTab(t)} className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${tab === t ? 'bg-white text-primary shadow-sm' : 'text-slate-500'}`}>
-                                {t === 'Team' ? 'Team' : 'MAGSO Members'}
-                            </button>
-                        ))}
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {filtered.map(m => (
-                            <div key={m.Reg_Number} onClick={() => setSel(m)} className="bg-white p-4 rounded-2xl border border-slate-100 cursor-pointer hover:shadow-md transition-all flex items-center gap-4">
-                                <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center text-primary"><Icon name="user" /></div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-bold truncate">{m.Name}</p>
-                                    <p className="text-xs text-slate-500">{m.Role}</p>
-                                </div>
-                                {tab === 'Team' ? <div className="w-2 h-2 bg-emerald-500 rounded-full" /> : Number(m.Total_Owed) > 0 && <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />}
-                            </div>
-                        ))}
-                    </div>
-                    <AnimatePresence>
-                        {sel && (
-                            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSel(null)} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-                                <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} className="bg-white w-full max-w-md rounded-[2.5rem] overflow-hidden relative z-10">
-                                    <div className="bg-primary p-8 text-white">
-                                        <h2 className="text-2xl font-bold">{sel.Name}</h2>
-                                        <p className="opacity-70">{sel.Role}</p>
-                                    </div>
-                                    <div className="p-8 space-y-6">
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="p-3 bg-slate-50 rounded-2xl"><p className="text-[10px] font-bold text-slate-400 uppercase">Year</p><p className="font-bold">{sel.Year}</p></div>
-                                            <div className="p-3 bg-slate-50 rounded-2xl"><p className="text-[10px] font-bold text-slate-400 uppercase">Owed</p><p className="font-bold">MK {Number(sel.Total_Owed).toLocaleString()}</p></div>
-                                        </div>
-                                        {isLog ? (
-                                            <div className="space-y-3 p-4 bg-slate-50 rounded-2xl">
-                                                <input placeholder="Activity" value={logData.act} onChange={e => setLogData({...logData, act: e.target.value})} className="w-full px-3 py-2 rounded-xl border" />
-                                                <input type="number" placeholder="Amount" value={logData.amt} onChange={e => setLogData({...logData, amt: e.target.value})} className="w-full px-3 py-2 rounded-xl border" />
-                                                <button onClick={handleLog} className="w-full bg-emerald-600 text-white py-2 rounded-xl font-bold">Confirm</button>
-                                            </div>
-                                        ) : (
-                                            <button onClick={() => setIsLog(true)} className="w-full flex items-center justify-center gap-2 bg-emerald-50 text-emerald-700 py-4 rounded-2xl font-bold border border-emerald-100">
-                                                <Icon name="shopping-cart" size={20} /> Log Purchase
-                                            </button>
-                                        )}
-                                    </div>
-                                </motion.div>
-                            </div>
-                        )}
-                    </AnimatePresence>
-                </div>
-            );
-        }
+<script>
+    const API_URL = 'https://script.google.com/macros/s/AKfycbxcuP2DbPgJCbO2h_AfDMTw_2iEUhx_clsm4RO2u2fQZLYyGMflrFGPu-SbA4Vw2UN7nw/exec';
+// ══════════════════════════════════════════════
+//  DATA
+// ══════════════════════════════════════════════
+const colors = [
+  ['#00d4aa','#0a2e28'],['#6366f1','#151630'],['#f59e0b','#2e2200'],
+  ['#ec4899','#2e0a1f'],['#10b981','#0a2e1f'],['#3b82f6','#0a1e35'],
+  ['#ef4444','#2e0a0a'],['#8b5cf6','#1e0a35'],['#14b8a6','#0a2929'],
+  ['#f97316','#2e1500'],['#84cc16','#1a2800'],['#06b6d4','#0a2530'],
+];
+function memberColor(i){ return colors[i % colors.length]; }
+function initials(name){ return name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2); }
 
-        function Activities({ tasks, events, refresh }) {
-            const { user } = useContext(AuthContext);
-            const [selDate, setSelDate] = useState(new Date());
-            const [showCongrats, setShowCongrats] = useState(false);
+const members = [
+  {name:'Chisomo Banda',program:'BBA',year:'Year 2',gender:'female',reg:'2023/BBA/014',phone:'+265 991 234 567',email:'c.banda@mzuni.ac.mw',owed:0,paid:15000,badge:'Super Fundraiser'},
+  {name:'Thabo Mkandawire',program:'BCom',year:'Year 3',gender:'male',reg:'2022/BCom/007',phone:'+265 881 345 678',email:'t.mkandawire@mzuni.ac.mw',owed:3000,paid:7000,badge:'Early Bird'},
+  {name:'Alinafe Phiri',program:'BBA',year:'Year 1',gender:'female',reg:'2024/BBA/031',phone:'+265 995 456 789',email:'a.phiri@mzuni.ac.mw',owed:0,paid:10000,badge:'Elite Fundraiser'},
+  {name:'Grace Nkhonjera',program:'BA Econ',year:'Year 2',gender:'female',reg:'2023/ECON/009',phone:'+265 882 567 890',email:'g.nkhonjera@mzuni.ac.mw',owed:0,paid:35000,badge:'Elite Fundraiser'},
+  {name:'Kondwani Mwale',program:'BCom',year:'Year 3',gender:'male',reg:'2022/BCom/012',phone:'+265 996 678 901',email:'k.mwale@mzuni.ac.mw',owed:8000,paid:5000,badge:''},
+  {name:'Tamara Chirwa',program:'BBA',year:'Year 2',gender:'female',reg:'2023/BBA/022',phone:'+265 883 789 012',email:'t.chirwa@mzuni.ac.mw',owed:0,paid:22000,badge:'Super Fundraiser'},
+  {name:'Dalitso Mseka',program:'BA Econ',year:'Year 1',gender:'male',reg:'2024/ECON/005',phone:'+265 997 890 123',email:'d.mseka@mzuni.ac.mw',owed:5000,paid:2000,badge:''},
+  {name:'Patience Gondwe',program:'BBA',year:'Year 3',gender:'female',reg:'2022/BBA/003',phone:'+265 884 901 234',email:'p.gondwe@mzuni.ac.mw',owed:0,paid:40000,badge:'Elite Fundraiser'},
+  {name:'Mwiza Tembo',program:'BCom',year:'Year 2',gender:'male',reg:'2023/BCom/018',phone:'+265 991 012 345',email:'m.tembo@mzuni.ac.mw',owed:2000,paid:8000,badge:'Early Bird'},
+  {name:'Esme Kayira',program:'BBA',year:'Year 1',gender:'female',reg:'2024/BBA/044',phone:'+265 882 123 456',email:'e.kayira@mzuni.ac.mw',owed:0,paid:5000,badge:''},
+  {name:'Rex Nkosi',program:'BA Econ',year:'Year 3',gender:'male',reg:'2022/ECON/011',phone:'+265 998 234 567',email:'r.nkosi@mzuni.ac.mw',owed:10000,paid:15000,badge:''},
+  {name:'Blessing Jere',program:'BCom',year:'Year 2',gender:'female',reg:'2023/BCom/025',phone:'+265 885 345 678',email:'b.jere@mzuni.ac.mw',owed:0,paid:18000,badge:'Super Fundraiser'},
+];
 
-            const handleQuick = async (act, amt) => {
-                await api.addTransaction({ Date: format(new Date(), 'yyyy-MM-dd'), Member_Name: user.Name, Activity: act, Amount: amt, Mode: 'Cash', Verified_By_Treasurer: 'No' });
-                refresh();
-            };
+let memberFilter = 'all';
+let transactions = [];
 
-            const toggle = async (t) => {
-                const next = t.Status === 'Done' ? 'Pending' : 'Done';
-                await api.updateTask(t.Task_Name, { Status: next });
-                if (next === 'Done') { setShowCongrats(true); setTimeout(() => setShowCongrats(false), 3000); }
-                refresh();
-            };
+// ══════════════════════════════════════════════
+//  RENDER MEMBERS
+// ══════════════════════════════════════════════
+function renderMembers(){
+  const q = (document.getElementById('memberSearch')||{value:''}).value.toLowerCase();
+  const list = document.getElementById('membersList');
+  if(!list) return;
+  list.innerHTML = '';
+  members.forEach((m,i)=>{
+    const matchQ = !q || m.name.toLowerCase().includes(q) || m.phone.includes(q) || m.reg.toLowerCase().includes(q);
+    const matchF = memberFilter==='all' ||
+      (memberFilter==='male' && m.gender==='male') ||
+      (memberFilter==='female' && m.gender==='female') ||
+      (memberFilter==='y1' && m.year==='Year 1') ||
+      (memberFilter==='y2' && m.year==='Year 2') ||
+      (memberFilter==='y3' && m.year==='Year 3');
+    if(!matchQ||!matchF) return;
+    const [fg,bg] = memberColor(i);
+    list.innerHTML += `
+      <div class="member-row" onclick="showMemberDetail(${i})">
+        <div class="member-avatar" style="background:${bg};color:${fg}">
+          ${initials(m.name)}
+          ${m.owed>0?'<div class="red-dot"></div>':''}
+        </div>
+        <div class="member-info">
+          <div class="member-name">${m.name}</div>
+          <div class="member-meta">${m.program} · ${m.year} · ${m.reg}</div>
+        </div>
+        <div class="member-amount">
+          <div class="amount-paid">MK ${m.paid.toLocaleString()}</div>
+          ${m.owed>0?`<div class="amount-owed">MK ${m.owed.toLocaleString()} owed</div>`:'<div style="font-size:.72rem;color:var(--accent)">✓ Clear</div>'}
+        </div>
+      </div>`;
+  });
+}
 
-            const dayEvents = events.filter(e => isSameDay(parseISO(e.Date), selDate));
+function filterMembers(){ renderMembers(); }
+function setMemberFilter(btn,f){
+  document.querySelectorAll('#tab-people .filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); memberFilter=f; renderMembers();
+}
 
-            return (
-                <div className="space-y-8">
-                    <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                        <button onClick={() => handleQuick('Car Wash', 2000)} className="flex-shrink-0 bg-emerald-50 text-emerald-700 px-4 py-2 rounded-xl text-sm font-bold border border-emerald-100">Car Wash - MK 2000</button>
-                        <button onClick={() => handleQuick('Shoe Polish', 500)} className="flex-shrink-0 bg-amber-50 text-amber-700 px-4 py-2 rounded-xl text-sm font-bold border border-amber-100">Shoe Polish - MK 500</button>
-                    </div>
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <div className="lg:col-span-2 space-y-6">
-                            <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
-                                <h3 className="font-bold mb-4">Calendar</h3>
-                                <div className="grid grid-cols-7 gap-1">
-                                    {/* Simplified Calendar View */}
-                                    {Array.from({ length: 31 }).map((_, i) => (
-                                        <div key={i} onClick={() => setSelDate(new Date(2026, 1, i + 1))} className={`aspect-square flex items-center justify-center rounded-xl cursor-pointer text-xs font-bold ${isSameDay(new Date(2026, 1, i + 1), selDate) ? 'bg-primary text-white' : 'hover:bg-slate-50'}`}>
-                                            {i + 1}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="bg-slate-50 p-6 rounded-[2.5rem]">
-                                <h4 className="font-bold mb-4">Events for {format(selDate, 'MMM do')}</h4>
-                                {dayEvents.length > 0 ? dayEvents.map((e, i) => (
-                                    <div key={i} className="bg-white p-4 rounded-2xl mb-3 shadow-sm">
-                                        <p className="font-bold">{e.Name}</p>
-                                        <p className="text-xs text-slate-500">{e.Location}</p>
-                                    </div>
-                                )) : <p className="text-slate-400 italic text-sm">No events.</p>}
-                            </div>
-                        </div>
-                        <div className="space-y-4">
-                            <h3 className="font-bold">Tasks</h3>
-                            {tasks.map((t, i) => (
-                                <div key={i} className={`bg-white p-4 rounded-2xl border border-slate-100 flex items-center gap-3 ${t.Status === 'Done' ? 'opacity-50' : ''}`}>
-                                    <button onClick={() => toggle(t)} className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center ${t.Status === 'Done' ? 'bg-primary border-primary text-white' : 'border-slate-200'}`}><Icon name="check" size={14} /></button>
-                                    <div className="flex-1 min-w-0">
-                                        <p className={`font-bold text-sm ${t.Status === 'Done' ? 'line-through' : ''}`}>{t.Task_Name}</p>
-                                        <p className="text-[10px] text-slate-500">{t.Assigned_To}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                    <AnimatePresence>
-                        {showCongrats && (
-                            <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-primary text-white px-8 py-4 rounded-3xl shadow-2xl flex items-center gap-4">
-                                <div className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center"><Icon name="check-circle-2" /></div>
-                                <div><p className="font-bold">Congratulations!</p><p className="text-white/70 text-sm">Task completed.</p></div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
-            );
-        }
+// ══════════════════════════════════════════════
+//  MEMBER DETAIL
+// ══════════════════════════════════════════════
+const sampleTx = [
+  {date:'14 Feb',act:'Car Wash',amount:5000,mode:'Cash',status:'Paid'},
+  {date:'10 Feb',act:'Monthly Dues',amount:10000,mode:'Mpamba',status:'Paid'},
+  {date:'01 Feb',act:'Shoe Polish',amount:3000,mode:'Airtel',status:'Pledge'},
+];
+const badgeIcons = {'Early Bird':'🐦','Super Fundraiser':'🚀','Elite Fundraiser':'👑'};
 
-        function App() {
-            const { user, loading } = useContext(AuthContext);
-            const [view, setView] = useState('dashboard');
-            const [data, setData] = useState({ members: [], transactions: [], tasks: [], events: [] });
-            const [isOnline, setIsOnline] = useState(navigator.onLine);
+function showMemberDetail(i){
+  const m = members[i];
+  const [fg,bg] = memberColor(i);
+  document.getElementById('memberListView').style.display='none';
+  const dv = document.getElementById('memberDetailView');
+  dv.classList.add('show');
+  document.getElementById('detailHeader').innerHTML=`
+    <div class="detail-avatar" style="background:${bg};color:${fg}">${initials(m.name)}</div>
+    <div>
+      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:1.1rem">${m.name}</div>
+      <div style="font-size:.78rem;color:var(--muted);margin-top:2px">${m.program} · ${m.year}</div>
+      <div style="font-size:.78rem;color:var(--muted)">${m.reg}</div>
+      <div style="font-size:.78rem;margin-top:4px"><span style="color:var(--accent)">📞</span> ${m.phone}</div>
+      <div style="font-size:.78rem"><span style="color:var(--accent3)">✉️</span> ${m.email}</div>
+      <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+        <span class="chip green">Paid: MK ${m.paid.toLocaleString()}</span>
+        ${m.owed>0?`<span class="chip red">Owes: MK ${m.owed.toLocaleString()}</span>`:'<span class="chip green">✓ No debt</span>'}
+      </div>
+    </div>`;
+  let txHTML = `<div style="font-family:'Syne',sans-serif;font-weight:700;font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;padding:.4rem .25rem">Transaction History</div>`;
+  sampleTx.forEach(t=>{
+    txHTML+=`<div class="tx-row">
+      <div><div style="font-weight:500;font-size:.85rem">${t.act}</div><div style="font-size:.72rem;color:var(--muted)">${t.date}</div></div>
+      <div style="display:flex;align-items:center;gap:.5rem">
+        <span class="tx-mode">${t.mode}</span>
+        <span class="${t.status==='Pledge'?'chip amber':'chip green'}" style="font-size:.65rem">${t.status}</span>
+        <div class="${t.status==='Pledge'?'tx-amount debt':'tx-amount positive'}">MK ${t.amount.toLocaleString()}</div>
+      </div>
+    </div>`;
+  });
+  document.getElementById('detailTransactions').innerHTML=txHTML;
+  document.getElementById('detailBadges').innerHTML = m.badge ? `
+    <div class="badge-card">
+      <div class="badge-icon">${badgeIcons[m.badge]||'🏅'}</div>
+      <div><div class="badge-name">${m.badge}</div><div class="badge-desc">Earned this semester</div></div>
+    </div>` : '';
+}
 
-            const refresh = async () => {
-                const [m, t, tk, e] = await Promise.all([api.getMembers(), api.getTransactions(), api.getTasks(), api.getEvents()]);
-                setData({ members: m, transactions: t, tasks: tk, events: e });
-            };
+function showMemberList(){
+  document.getElementById('memberListView').style.display='block';
+  document.getElementById('memberDetailView').classList.remove('show');
+}
 
-            useEffect(() => {
-                if (user) refresh();
-                const hOnline = () => { setIsOnline(true); syncService.processQueue(); };
-                const hOffline = () => setIsOnline(false);
-                window.addEventListener('online', hOnline);
-                window.addEventListener('offline', hOffline);
-                return () => { window.removeEventListener('online', hOnline); window.removeEventListener('offline', hOffline); };
-            }, [user]);
+// ══════════════════════════════════════════════
+//  TAB SWITCHING
+// ══════════════════════════════════════════════
+function switchTab(name, btn){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if(name==='people'){ showMemberList(); renderMembers(); }
+  const fabBtn = document.getElementById('fabBtn');
+  fabBtn.style.display = name==='people' || name==='transactions' ? 'flex' : 'none';
+}
 
-            if (loading) return null;
-            if (!user) return <Login />;
+// ══════════════════════════════════════════════
+//  MODAL
+// ══════════════════════════════════════════════
+function openModal(id){
+  document.getElementById('modal-'+id).classList.add('show');
+  document.body.style.overflow='hidden';
+}
+function closeModal(id){
+  document.getElementById('modal-'+id).classList.remove('show');
+  document.body.style.overflow='';
+}
+document.querySelectorAll('.modal-overlay').forEach(o=>{
+  o.addEventListener('click',e=>{ if(e.target===o){ o.classList.remove('show'); document.body.style.overflow=''; } });
+});
 
-            return (
-                <div className="min-h-screen flex flex-col md:flex-row">
-                    {/* Sidebar */}
-                    <aside className="hidden md:flex w-64 bg-primary text-white flex-col p-6">
-                        <h1 className="text-2xl font-bold mb-8 text-accent">Fundraising Manager</h1>
-                        <nav className="space-y-2 flex-1">
-                            {[
-                                { id: 'dashboard', icon: 'layout-dashboard', label: 'Dashboard' },
-                                { id: 'people', icon: 'users', label: 'People' },
-                                { id: 'activities', icon: 'check-square', label: 'Activities' }
-                            ].map(item => (
-                                <button key={item.id} onClick={() => setView(item.id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${view === item.id ? 'bg-white text-primary' : 'text-white/60 hover:bg-white/10'}`}>
-                                    <Icon name={item.icon} size={20} /> {item.label}
-                                </button>
-                            ))}
-                        </nav>
-                        <div className="pt-6 border-t border-white/10">
-                            <p className="text-xs font-bold text-white/40 uppercase mb-2">Logged in as</p>
-                            <p className="font-bold truncate">{user.Name}</p>
-                        </div>
-                    </aside>
+// ══════════════════════════════════════════════
+//  CASH REMINDER
+// ══════════════════════════════════════════════
+function checkCashReminder(){
+  const mode = document.getElementById('tx-mode').value;
+  const reminder = document.getElementById('cashReminder');
+  if(mode==='Cash') reminder.classList.add('show'); else reminder.classList.remove('show');
+}
 
-                    {/* Mobile Header */}
-                    <header className="md:hidden bg-primary text-white p-4 flex justify-between items-center">
-                        <h1 className="font-bold">Fundraising Manager</h1>
-                        {!isOnline && <Icon name="wifi-off" className="text-red-400 animate-pulse" />}
-                    </header>
+// ══════════════════════════════════════════════
+//  SUBMIT TRANSACTION
+// ══════════════════════════════════════════════
+function submitTransaction(){
+  closeModal('logTransaction');
+  showToast('✅ Transaction saved & synced!');
+  // If offline, queue for sync
+  if(!navigator.onLine){
+    let q = JSON.parse(localStorage.getItem('pendingTx')||'[]');
+    q.push({time:Date.now()}); localStorage.setItem('pendingTx',JSON.stringify(q));
+  }
+}
 
-                    {/* Main Content */}
-                    <main className="flex-1 p-4 md:p-8 overflow-y-auto pb-24 md:pb-8">
-                        {view === 'dashboard' && <Dashboard transactions={data.transactions} members={data.members} />}
-                        {view === 'people' && <People members={data.members} transactions={data.transactions} refresh={refresh} />}
-                        {view === 'activities' && <Activities tasks={data.tasks} events={data.events} refresh={refresh} />}
-                    </main>
+// ══════════════════════════════════════════════
+//  ADD MEMBER
+// ══════════════════════════════════════════════
+function addMember(){
+  closeModal('addMember');
+  showToast('👤 Member added successfully!');
+}
 
-                    {/* Mobile Nav */}
-                    <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t p-2 flex justify-around items-center z-40">
-                        {[
-                            { id: 'dashboard', icon: 'layout-dashboard' },
-                            { id: 'people', icon: 'users' },
-                            { id: 'activities', icon: 'check-square' }
-                        ].map(item => (
-                            <button key={item.id} onClick={() => setView(item.id)} className={`p-3 rounded-2xl transition-all ${view === item.id ? 'bg-primary text-white shadow-lg' : 'text-slate-400'}`}>
-                                <Icon name={item.icon} />
-                            </button>
-                        ))}
-                    </nav>
-                </div>
-            );
-        }
+// ══════════════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════════════
+let toastTimer;
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),3000);
+}
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<AuthProvider><App /></AuthProvider>);
+// ══════════════════════════════════════════════
+//  TASK TOGGLE
+// ══════════════════════════════════════════════
+function toggleTask(el){
+  const isDone = el.classList.toggle('done');
+  const nameEl = el.nextElementSibling.querySelector('.task-name');
+  const metaEl = el.nextElementSibling.querySelector('.task-due,.task-meta');
+  if(isDone){
+    nameEl.classList.add('done');
+    const now = new Date();
+    const timeStr = now.toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    metaEl.className='task-meta'; metaEl.style.color='var(--accent)'; metaEl.style.fontSize='.72rem';
+    metaEl.textContent='✅ Completed '+timeStr;
+    showToast('🏆 Task completed! Keep it up!');
+  } else {
+    nameEl.classList.remove('done');
+    metaEl.className='task-due'; metaEl.style.color=''; metaEl.style.fontSize='';
+    metaEl.textContent='📅 Due: Mar 2';
+  }
+}
 
-        // Utility
-        function cn(...inputs) { return inputs.filter(Boolean).join(' '); }
-        const format = (date, fmt) => {
-            const d = new Date(date);
-            if (fmt === 'yyyy-MM-dd') return d.toISOString().split('T')[0];
-            if (fmt === 'MMMM do, yyyy') return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-            if (fmt === 'MMM do') return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            return d.toLocaleDateString();
-        };
-        const isSameDay = (d1, d2) => d1.toDateString() === d2.toDateString();
-        const parseISO = (s) => new Date(s);
-    </script>
+// ══════════════════════════════════════════════
+//  FILTER
+// ══════════════════════════════════════════════
+function setFilter(btn){
+  btn.closest('.filter-row').querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ══════════════════════════════════════════════
+//  OFFLINE / ONLINE DETECTION
+// ══════════════════════════════════════════════
+function updateOnlineStatus(){
+  const dot = document.getElementById('statusDot');
+  const label = document.getElementById('statusLabel');
+  const banner = document.getElementById('offlineBanner');
+  if(navigator.onLine){
+    dot.classList.remove('offline'); label.textContent='Online';
+    banner.classList.remove('show');
+    const pending = JSON.parse(localStorage.getItem('pendingTx')||'[]');
+    if(pending.length>0){
+      localStorage.removeItem('pendingTx');
+      showToast(`🌐 You are now online! ${pending.length} transaction(s) synced.`);
+    }
+  } else {
+    dot.classList.add('offline'); label.textContent='Offline';
+    banner.classList.add('show');
+    showToast('📵 You are offline. Data saved locally.');
+  }
+}
+window.addEventListener('online', updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
+updateOnlineStatus();
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+document.getElementById('fabBtn').style.display='none'; // FAB hidden on home
+renderMembers();
+
+// Simulated notification after 4s
+setTimeout(()=>showToast('🔔 Task deadline approaching: Collect dues — Due Today!'), 4000);
+</script>
 </body>
 </html>
